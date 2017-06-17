@@ -82,10 +82,7 @@ void handle_request(int cfd, char *req) {
 
             } else {
                 perror("file open");
-                return;
             }
-
-
         }
     }
 
@@ -104,23 +101,17 @@ int spawn_child(int sfd, struct sockaddr_in addr) {
     }
 
     if (pid == 0) {
-        // child
         addr_len = sizeof(struct sockaddr_in);
-        // new connection
+
         while (1) {
             cfd = accept(sfd, (struct sockaddr *) &addr, &addr_len);
-
             memset(buf, 0, sizeof(buf));
 
-            // respond to request
             while ((n = recv(cfd, buf, sizeof(buf), 0)) > 0) {
-                // printf("pid: %d, size: %d\n%s", getpid(), n, buf);
+                printf("pid: %d, size: %d\n%s", getpid(), n, buf);
                 handle_request(cfd, buf);
-                // n = write(cfd, buf, sizeof(buf));
                 close(cfd);
             }
-
-            close(cfd);
         }
     }
 
@@ -136,6 +127,7 @@ int listen_tcp_server(struct sockaddr_in addr) {
         exit(1);
     }
 
+    // Reuse socket
     setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 
     if (bind(sfd, (struct sockaddr *) &addr, sizeof(struct sockaddr)) == -1) {
