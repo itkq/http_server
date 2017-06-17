@@ -12,6 +12,12 @@
 #define LISTEN_BACKLOG      10
 #define CONCURRENCY         4
 
+enum REQUEST_LINE_ID {
+    REQ_METHOD,
+    REQ_PATH,
+    REQ_VERSION
+} ;
+
 const char *ACCEPTABLE_METHOD[1] = {"GET"};
 const char *ACCEPTABLE_VERSION[1] = {"HTTP/1.0"};
 const char *documentRoot = "./html";
@@ -37,9 +43,7 @@ void handle_request(int cfd, char *req) {
         if (line == NULL) break;
 
         if (line_no == 0) {
-            char *method;
-            char *path;
-            char *version;
+            char *tokens[3];
             char effective_path[64];
             FILE *fp;
 
@@ -47,27 +51,20 @@ void handle_request(int cfd, char *req) {
                 token = strtok_r(token, " ", &saveptr_token);
                 if (token == NULL) break;
 
-                switch (token_no) {
-                    case 0:
-                        method = token; break;
-                    case 1:
-                        path = token; break;
-                    case 2:
-                        version = token; break;
-                }
+                tokens[token_no] = token;
             }
 
-            if (!str_include(method, ACCEPTABLE_METHOD)) {
-                printf("error: specified method \"%s\" cannot be accepted.", method);
+            if (!str_include(tokens[REQ_METHOD], ACCEPTABLE_METHOD)) {
+                printf("error: specified method \"%s\" cannot be accepted.", tokens[REQ_METHOD]);
                 return;
             }
-            if (!str_include(version, ACCEPTABLE_VERSION)) {
-                printf("error: specified version \"%s\" cannot be accepted.", version);
+            if (!str_include(tokens[REQ_VERSION], ACCEPTABLE_VERSION)) {
+                printf("error: specified version \"%s\" cannot be accepted.", tokens[REQ_VERSION]);
                 return;
             }
 
             strncpy(effective_path, documentRoot, 64);
-            strcat(effective_path, path);
+            strcat(effective_path, tokens[REQ_PATH]);
 
             printf("effective path: %s\n", effective_path);
             if ((fp = fopen(effective_path, "r"))) {
