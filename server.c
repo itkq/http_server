@@ -40,6 +40,8 @@ int spawn_child(int sfd, struct sockaddr_in addr) {
                 printf("(pid: %d) %d %s", getpid(), n, buf);
                 n = write(cfd, buf, sizeof(buf));
             }
+
+            close(cfd);
         }
     } else {
         printf("spawn: %d\n", pid);
