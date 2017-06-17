@@ -12,7 +12,84 @@
 #define LISTEN_BACKLOG      10
 #define CONCURRENCY         4
 
+const char *ACCEPTABLE_METHOD[1] = {"GET"};
+const char *ACCEPTABLE_VERSION[1] = {"HTTP/1.0"};
+const char *documentRoot = "./html";
+
 int child_pids[CONCURRENCY];
+
+int str_include(char *needle, const char **arr) {
+    const char **str;
+    for (str = arr; *str != NULL; str++) {
+        if (strcmp(needle, *str) == 0) return 1;
+    }
+
+    return 0;
+}
+
+void handle_request(int cfd, char *req) {
+    int line_no, token_no;
+    char *str, *line, *token;
+    char *saveptr_line, *saveptr_token;
+
+    for (line_no = 0, str = req; ; str = NULL, line_no++) {
+        line = strtok_r(str, "\r\n", &saveptr_line);
+        if (line == NULL) break;
+
+        if (line_no == 0) {
+            char *method;
+            char *path;
+            char *version;
+            char effective_path[64];
+            FILE *fp;
+
+            for (token_no = 0, token = line; ; token = NULL, token_no++) {
+                token = strtok_r(token, " ", &saveptr_token);
+                if (token == NULL) break;
+
+                switch (token_no) {
+                    case 0:
+                        method = token; break;
+                    case 1:
+                        path = token; break;
+                    case 2:
+                        version = token; break;
+                }
+            }
+
+            if (!str_include(method, ACCEPTABLE_METHOD)) {
+                printf("error: specified method \"%s\" cannot be accepted.", method);
+                return;
+            }
+            if (!str_include(version, ACCEPTABLE_VERSION)) {
+                printf("error: specified version \"%s\" cannot be accepted.", version);
+                return;
+            }
+
+            strncpy(effective_path, documentRoot, 64);
+            strcat(effective_path, path);
+
+            printf("effective path: %s\n", effective_path);
+            if ((fp = fopen(effective_path, "r"))) {
+                char buf[256];
+
+                while ((memset(buf, 0, sizeof(buf)), fgets(buf, sizeof(buf), fp)) != NULL) {
+                    printf("%s", buf);
+                    send(cfd, buf, sizeof(buf), 0);
+                }
+
+                fclose(fp);
+
+            } else {
+                perror("file open");
+                return;
+            }
+
+
+        }
+    }
+
+}
 
 int spawn_child(int sfd, struct sockaddr_in addr) {
     int cfd;
@@ -37,16 +114,15 @@ int spawn_child(int sfd, struct sockaddr_in addr) {
 
             // respond to request
             while ((n = recv(cfd, buf, sizeof(buf), 0)) > 0) {
-                printf("(pid: %d) %d %s", getpid(), n, buf);
-                n = write(cfd, buf, sizeof(buf));
+                // printf("pid: %d, size: %d\n%s", getpid(), n, buf);
+                handle_request(cfd, buf);
+                // n = write(cfd, buf, sizeof(buf));
+                close(cfd);
             }
 
             close(cfd);
         }
-    } else {
-        printf("spawn: %d\n", pid);
     }
-
 
     return pid;
 }
